@@ -1,0 +1,44 @@
+# Three tiers:
+#   Presentation - Apache serving the Blade views (app container, port 80)
+#   Application  - Laravel (app container)
+#   Data         - MySQL 8 (db container)
+services:
+  db:
+    image: mysql:8.0
+    container_name: laravel-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass123
+      MYSQL_DATABASE: laravel_db
+      MYSQL_USER: laravel_user
+      MYSQL_PASSWORD: laravel_pass
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpass123"]
+      interval: 5s
+      retries: 30
+
+  app:
+    build: .
+    container_name: laravel-app
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: laravel_db
+      DB_USERNAME: laravel_user
+      DB_PASSWORD: laravel_pass
+    # Create the tables on startup, then run Apache
+    command: sh -c "php artisan migrate --force && apache2-foreground"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_data:
